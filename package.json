@@ -26,6 +26,7 @@
     "inert": "^4.0.2",
     "joi": "^9.2.0",
     "node-uuid": "^1.4.7",
+    "pcap": "git+https://github.com/mranney/node_pcap.git",
     "shortid": "^2.2.6",
     "vision": "^4.1.0"
   },
