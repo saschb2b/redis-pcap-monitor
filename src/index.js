@@ -4,9 +4,8 @@ const Hapi = require('hapi')
 const Inert = require('inert')
 const Vision = require('vision')
 
-const sessionRoutes = require('./routes/sessions')
-
 const server = new Hapi.Server()
+const sessionRoutes = require('./routes/sessions')
 
 server.connection({
   port: 3000
