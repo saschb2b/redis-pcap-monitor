@@ -22,10 +22,10 @@ exports.register = (server, options, next) => {
         let ipPackage = packet.payload.payload
         let tcpPackage = ipPackage.payload
 
-        if (ipPackage && tcpPackage) {
+        if (ipPackage && ipPackage.version === 4 && tcpPackage) {
           let result = {
-            saddr: ipPackage.saddr,
-            daddr: ipPackage.daddr,
+            saddr: ipPackage.saddr.addr,
+            daddr: ipPackage.daddr.addr,
             sport: tcpPackage.sport,
             dport: tcpPackage.dport,
             timestamp: tcpPackage.options.timestamp,
