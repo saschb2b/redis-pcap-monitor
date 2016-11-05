@@ -15,8 +15,6 @@ exports.register = (server, options, next) => {
       reply("Hello world")
     }
   })
-
-
   return next()
 }
 
