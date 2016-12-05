@@ -17,9 +17,12 @@ exports.register = (server, options, next) => {
     method: 'GET',
     path: '/data',
     handler: (request, reply) => {
-      redisClient.hgetall("package:5", function (err, obj) {
+      redisClient.zrange("connection","0", "5", "WITHSCORES", function (err, obj) {
         reply(obj)
       })
+    },
+    config: {
+      tags: ['api']
     }
   })
 
@@ -47,7 +50,7 @@ exports.register = (server, options, next) => {
             length: tcpPackage.dataLength,
             data: tcpPackage.data
           }
-
+/*
           redisClient.hmset(`package:${counter}`,
             "saddr", result.saddr,
             "daddr", result.daddr,
@@ -57,6 +60,10 @@ exports.register = (server, options, next) => {
             "data", result.data,
             "datalength", result.length
             , function (err, res) {})
+*/
+          redisClient.zadd('connection',
+            result.timestamp, `${result.saddr}:${result.sport}-${result.daddr}:${result.dport}`
+          )
 
           counter++
 
@@ -66,6 +73,9 @@ exports.register = (server, options, next) => {
 
 
       reply(`Listening on ${pcap_session.device_name}`)
+    },
+    config: {
+      tags: ['api']
     }
   })
 
@@ -76,6 +86,9 @@ exports.register = (server, options, next) => {
       pcap_session.close()
 
       reply(`Stopped listening on ${pcap_session.device_name}`)
+    },
+    config: {
+      tags: ['api']
     }
   })
   return next()
