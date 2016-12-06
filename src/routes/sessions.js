@@ -15,14 +15,20 @@ exports.register = (server, options, next) => {
 
   server.route({
     method: 'GET',
-    path: '/data',
+    path: '/data/connection',
     handler: (request, reply) => {
-      redisClient.zrange("connection","0", "5", "WITHSCORES", function (err, obj) {
+      redisClient.zrange("connection", request.query.start, request.query.end, "WITHSCORES", function (err, obj) {
         reply(obj)
       })
     },
     config: {
-      tags: ['api']
+      tags: ['api'],
+      validate: {
+        query: {
+          start: Joi.number().required(),
+          end: Joi.number().required()
+        }
+      }
     }
   })
 
@@ -46,21 +52,21 @@ exports.register = (server, options, next) => {
             daddr,
             sport: tcpPackage.sport,
             dport: tcpPackage.dport,
-            timestamp: tcpPackage.options.timestamp,
+            timestamp: tcpPackage.options.timestamp | Date.now(),
             length: tcpPackage.dataLength,
             data: tcpPackage.data
           }
-/*
-          redisClient.hmset(`package:${counter}`,
-            "saddr", result.saddr,
-            "daddr", result.daddr,
-            "sport", result.sport,
-            "dport", result.dport,
-            "timestamp", result.timestamp,
-            "data", result.data,
-            "datalength", result.length
-            , function (err, res) {})
-*/
+          /*
+           redisClient.hmset(`package:${counter}`,
+           "saddr", result.saddr,
+           "daddr", result.daddr,
+           "sport", result.sport,
+           "dport", result.dport,
+           "timestamp", result.timestamp,
+           "data", result.data,
+           "datalength", result.length
+           , function (err, res) {})
+           */
           redisClient.zadd('connection',
             result.timestamp, `${result.saddr}:${result.sport}-${result.daddr}:${result.dport}`
           )
