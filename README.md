@@ -1,6 +1,8 @@
 # Redis Pcap Monitor
 Pcap sniffed data stored in redis and accessed via REST with swagger gui
 
+![REST](rest.jpg)
+
 ## Usage
 You will need `libpcap` installed. Most OSX machines seem to have it. All major Linux distributions have it available either by default or with a package like `libpcap-dev`.
 
