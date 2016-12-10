@@ -8,8 +8,6 @@ const shortid = require('shortid')
 const pcap = require("pcap")
 let pcap_session
 
-let counter = 0
-
 exports.register = (server, options, next) => {
   const redisClient = server.plugins['hapi-redis'].client
 
@@ -86,7 +84,38 @@ exports.register = (server, options, next) => {
     }
   })
 
-  // todo byte sequence
+  server.route({
+    method: 'GET',
+    path: '/query/data',
+    handler: (request, reply) => {
+      redisClient.smembers('data', function (err, obj) {
+        reply(obj)
+      })
+    },
+    config: {
+      tags: ['api'],
+      description: 'Retrieve all packets'
+    }
+  })
+
+  server.route({
+    method: 'GET',
+    path: '/query/data/contains',
+    handler: (request, reply) => {
+      redisClient.sscan('data', 0, 'match', `*${request.query.pattern}*`, function (err, obj) {
+        reply(obj)
+      })
+    },
+    config: {
+      tags: ['api'],
+      description: 'Retrieve all packets that contain a byte sequence',
+      validate: {
+        query: {
+          pattern: Joi.string().required().description('Byte sequence')
+        }
+      }
+    }
+  })
 
   server.route({
     method: 'GET',
@@ -135,7 +164,7 @@ exports.register = (server, options, next) => {
             dport: tcpPackage.dport,
             timestamp: tcpPackage.options.timestamp | Date.now(),
             length: tcpPackage.dataLength,
-            data: tcpPackage.data
+            data: tcpPackage.data ? JSON.stringify(JSON.parse(JSON.stringify(tcpPackage.data)).data) : null
           }
           /*
            redisClient.hmset(`package:${counter}`,
@@ -148,22 +177,25 @@ exports.register = (server, options, next) => {
            "datalength", result.length
            , function (err, res) {})
            */
+
+
           redisClient.zadd('timestamp',
             result.timestamp, `${result.saddr}:${result.sport}-${result.daddr}:${result.dport}`
           )
 
 
           /*
-          console.log(typeof result.length)
-          if(result.length >= 0 && typeof result.length === 'number') {
-            console.log(result.length)
-            redisClient.hincrby('datalength', `${result.saddr}:${result.daddr}`, result.length)
-          }
-*/
+           console.log(typeof result.length)
+           if(result.length >= 0 && typeof result.length === 'number') {
+           console.log(result.length)
+           redisClient.hincrby('datalength', `${result.saddr}:${result.daddr}`, result.length)
+           }
+           */
+
 
           redisClient.sadd(`hosts:${result.daddr}:${result.dport}`, result.saddr)
 
-          if(result.dport <= 1024) {
+          if (result.dport <= 1024) {
             redisClient.sadd('wellknownports', `${result.daddr}:${result.dport}`)
           }
 
@@ -171,13 +203,11 @@ exports.register = (server, options, next) => {
             result.daddr, result.saddr
           )
 
-          counter++
+          redisClient.sadd('data', result.data)
 
           console.log(result)
         }
       })
-
-
       reply(`Listening on ${pcap_session.device_name}`)
     },
     config: {
