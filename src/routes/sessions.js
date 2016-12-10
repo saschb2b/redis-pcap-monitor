@@ -35,16 +35,32 @@ exports.register = (server, options, next) => {
     method: 'GET',
     path: '/query/datavolume/perminute',
     handler: (request, reply) => {
-      redisClient.hmget('datalength', `${request.query.source}:${request.query.destination}`, function (err, obj) {
-        reply(obj)
+      redisClient.hgetall(`${request.query.source}:${request.query.destination}`, function (err, obj) {
+        let resultSD = obj
+        resultSD.connection = `${request.query.source}:${request.query.destination}`
+        resultSD.duration = 60000 / ((obj.start - obj.stop) * -1)
+        resultSD.dataPerMinute = parseInt(obj.dataSum, 10) / resultSD.duration
+
+        redisClient.hgetall(`${request.query.destination}:${request.query.source}`, function (err, obj2) {
+          let resultDS = obj2
+          resultDS.connection = `${request.query.destination}:${request.query.source}`
+          resultDS.duration = 60000 / ((obj2.start - obj2.stop) * -1)
+          resultDS.dataPerMinute = parseInt(obj2.dataSum, 10) / resultDS.duration
+
+          reply({
+            resultSD,
+            resultDS
+          })
+        })
       })
     },
     config: {
       tags: ['api'],
+      description: 'Retrieve the overall data volume per minute for all connections between source and destination',
       validate: {
         query: {
-          source: Joi.string().required(),
-          destination: Joi.string().required()
+          source: Joi.number().integer().required(),
+          destination: Joi.number().integer().required()
         }
       }
     }
@@ -178,20 +194,22 @@ exports.register = (server, options, next) => {
            , function (err, res) {})
            */
 
-
           redisClient.zadd('timestamp',
             result.timestamp, `${result.saddr}:${result.sport}-${result.daddr}:${result.dport}`
           )
 
-
-          /*
-           console.log(typeof result.length)
-           if(result.length >= 0 && typeof result.length === 'number') {
-           console.log(result.length)
-           redisClient.hincrby('datalength', `${result.saddr}:${result.daddr}`, result.length)
-           }
-           */
-
+          if (result.data && result.length >= 0 && typeof result.length === 'number') {
+            console.log(result.length)
+            redisClient.hincrby(`${result.saddr}:${result.daddr}`,
+              'dataSum', parseInt(result.length, 10)
+            )
+            redisClient.hsetnx(`${result.saddr}:${result.daddr}`,
+              'start', result.timestamp
+            )
+            redisClient.hset(`${result.saddr}:${result.daddr}`,
+              'stop', result.timestamp
+            )
+          }
 
           redisClient.sadd(`hosts:${result.daddr}:${result.dport}`, result.saddr)
 
