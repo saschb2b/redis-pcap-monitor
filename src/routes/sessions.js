@@ -15,14 +15,15 @@ exports.register = (server, options, next) => {
 
   server.route({
     method: 'GET',
-    path: '/data/connection',
+    path: '/query/connections',
     handler: (request, reply) => {
-      redisClient.zrange("connection", request.query.start, request.query.end, "WITHSCORES", function (err, obj) {
+      redisClient.zrange("timestamp", request.query.start, request.query.end, "WITHSCORES", function (err, obj) {
         reply(obj)
       })
     },
     config: {
       tags: ['api'],
+      description: 'Retrieve all connections at a certain point in time',
       validate: {
         query: {
           start: Joi.number().required(),
@@ -32,9 +33,49 @@ exports.register = (server, options, next) => {
     }
   })
 
+
   server.route({
     method: 'GET',
-    path: '/data/start',
+    path: '/query/datavolume/perminute',
+    handler: (request, reply) => {
+      redisClient.hmget('datalength', `${request.query.source}:${request.query.destination}`, function (err, obj) {
+        reply(obj)
+      })
+    },
+    config: {
+      tags: ['api'],
+      validate: {
+        query: {
+          source: Joi.string().required(),
+          destination: Joi.string().required()
+        }
+      }
+    }
+  })
+
+  server.route({
+    method: 'GET',
+    path: '/query/hosts/ipport',
+    handler: (request, reply) => {
+      redisClient.smembers(`hosts:${request.query.destination}:${request.query.port}`, function (err, obj) {
+        reply(obj)
+      })
+    },
+    config: {
+      tags: ['api'],
+      description: 'Retrieve all hosts that had connections to ip a.b.c.d on a specific port',
+      validate: {
+        query: {
+          destination: Joi.number().integer().max(255255255255).required().description('Destination ip'),
+          port: Joi.number().integer().min(0).required().description('Destionation port')
+        }
+      }
+    }
+  })
+
+  server.route({
+    method: 'GET',
+    path: '/service/pcap/start',
     handler: (request, reply) => {
       pcap_session = pcap.createSession("", "tcp")
 
@@ -67,10 +108,19 @@ exports.register = (server, options, next) => {
            "datalength", result.length
            , function (err, res) {})
            */
-          redisClient.zadd('connection',
+          redisClient.zadd('timestamp',
             result.timestamp, `${result.saddr}:${result.sport}-${result.daddr}:${result.dport}`
           )
 
+          redisClient.sadd(`hosts:${result.daddr}:${result.dport}`, result.saddr)
+
+          /*
+          console.log(typeof result.length)
+          if(result.length >= 0 && typeof result.length === 'number') {
+            console.log(result.length)
+            redisClient.hincrby('datalength', `${result.saddr}:${result.daddr}`, result.length)
+          }
+*/
           counter++
 
           console.log(result)
@@ -81,20 +131,22 @@ exports.register = (server, options, next) => {
       reply(`Listening on ${pcap_session.device_name}`)
     },
     config: {
-      tags: ['api']
+      tags: ['api'],
+      description: 'Starts pcap'
     }
   })
 
   server.route({
     method: 'GET',
-    path: '/data/stop',
+    path: '/service/pcap/stop',
     handler: (request, reply) => {
       pcap_session.close()
 
       reply(`Stopped listening on ${pcap_session.device_name}`)
     },
     config: {
-      tags: ['api']
+      tags: ['api'],
+      description: 'Stops pcap'
     }
   })
   return next()
