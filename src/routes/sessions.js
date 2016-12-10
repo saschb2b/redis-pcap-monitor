@@ -189,17 +189,6 @@ exports.register = (server, options, next) => {
             length: tcpPackage.dataLength,
             data: tcpPackage.data ? JSON.stringify(JSON.parse(JSON.stringify(tcpPackage.data)).data) : null
           }
-          /*
-           redisClient.hmset(`package:${counter}`,
-           "saddr", result.saddr,
-           "daddr", result.daddr,
-           "sport", result.sport,
-           "dport", result.dport,
-           "timestamp", result.timestamp,
-           "data", result.data,
-           "datalength", result.length
-           , function (err, res) {})
-           */
 
           redisClient.zadd('timestamp',
             result.timestamp, `${result.saddr}:${result.sport}-${result.daddr}:${result.dport}`
@@ -229,8 +218,6 @@ exports.register = (server, options, next) => {
           )
 
           redisClient.sadd('data', result.data)
-
-          console.log(result)
         }
       })
       reply(`Listening on ${pcap_session.device_name}`)
