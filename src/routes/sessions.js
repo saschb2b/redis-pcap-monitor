@@ -33,7 +33,6 @@ exports.register = (server, options, next) => {
     }
   })
 
-
   server.route({
     method: 'GET',
     path: '/query/datavolume/perminute',
@@ -84,6 +83,33 @@ exports.register = (server, options, next) => {
     config: {
       tags: ['api'],
       description: 'Retrieve all hosts that have incoming connections on well-known ports',
+    }
+  })
+
+  // todo byte sequence
+
+  server.route({
+    method: 'GET',
+    path: '/query/connections/public',
+    handler: (request, reply) => {
+      redisClient.zrange("connections", 0, 10000000000, function (err, obj1) {
+        redisClient.zrange("connections", 11000000000, 172015255255, function (err, obj2) {
+          redisClient.zrange("connections", 172032000000, 192167255255, function (err, obj3) {
+            redisClient.zrange("connections", 192169000000, 255255255255, function (err, obj4) {
+              reply({
+                obj1,
+                obj2,
+                obj3,
+                obj4
+              })
+            })
+          })
+        })
+      })
+    },
+    config: {
+      tags: ['api'],
+      description: 'Retrieve all hosts that have connections to outside hosts'
     }
   })
 
@@ -140,6 +166,10 @@ exports.register = (server, options, next) => {
           if(result.dport <= 1024) {
             redisClient.sadd('wellknownports', `${result.daddr}:${result.dport}`)
           }
+
+          redisClient.zadd('connections',
+            result.daddr, result.saddr
+          )
 
           counter++
 
