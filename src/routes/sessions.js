@@ -35,17 +35,24 @@ exports.register = (server, options, next) => {
     method: 'GET',
     path: '/query/datavolume/perminute',
     handler: (request, reply) => {
+      let resultSD = {}
+      let resultDS = {}
       redisClient.hgetall(`${request.query.source}:${request.query.destination}`, function (err, obj) {
-        let resultSD = obj
-        resultSD.connection = `${request.query.source}:${request.query.destination}`
-        resultSD.duration = 60000 / ((obj.start - obj.stop) * -1)
-        resultSD.dataPerMinute = parseInt(obj.dataSum, 10) / resultSD.duration
+        resultSD.connection = `${request.query.source}->${request.query.destination}`
 
+        if (obj) {
+          resultSD.info = obj
+          resultSD.duration = 60000 / ((obj.start - obj.stop) * -1)
+          resultSD.dataPerMinute = parseInt(obj.dataSum, 10) / resultSD.duration
+        }
         redisClient.hgetall(`${request.query.destination}:${request.query.source}`, function (err, obj2) {
-          let resultDS = obj2
-          resultDS.connection = `${request.query.destination}:${request.query.source}`
-          resultDS.duration = 60000 / ((obj2.start - obj2.stop) * -1)
-          resultDS.dataPerMinute = parseInt(obj2.dataSum, 10) / resultDS.duration
+          resultDS.connection = `${request.query.destination}->${request.query.source}`
+
+          if (obj2) {
+            resultDS.info = obj2
+            resultDS.duration = 60000 / ((obj2.start - obj2.stop) * -1)
+            resultDS.dataPerMinute = parseInt(obj2.dataSum, 10) / resultDS.duration
+          }
 
           reply({
             resultSD,
