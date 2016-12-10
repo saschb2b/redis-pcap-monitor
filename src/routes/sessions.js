@@ -75,6 +75,20 @@ exports.register = (server, options, next) => {
 
   server.route({
     method: 'GET',
+    path: '/query/hosts/wellkownports',
+    handler: (request, reply) => {
+      redisClient.smembers('wellknownports', function (err, obj) {
+        reply(obj)
+      })
+    },
+    config: {
+      tags: ['api'],
+      description: 'Retrieve all hosts that have incoming connections on well-known ports',
+    }
+  })
+
+  server.route({
+    method: 'GET',
     path: '/service/pcap/start',
     handler: (request, reply) => {
       pcap_session = pcap.createSession("", "tcp")
@@ -112,7 +126,6 @@ exports.register = (server, options, next) => {
             result.timestamp, `${result.saddr}:${result.sport}-${result.daddr}:${result.dport}`
           )
 
-          redisClient.sadd(`hosts:${result.daddr}:${result.dport}`, result.saddr)
 
           /*
           console.log(typeof result.length)
@@ -121,6 +134,13 @@ exports.register = (server, options, next) => {
             redisClient.hincrby('datalength', `${result.saddr}:${result.daddr}`, result.length)
           }
 */
+
+          redisClient.sadd(`hosts:${result.daddr}:${result.dport}`, result.saddr)
+
+          if(result.dport <= 1024) {
+            redisClient.sadd('wellknownports', `${result.daddr}:${result.dport}`)
+          }
+
           counter++
 
           console.log(result)
