@@ -98,7 +98,14 @@ exports.register = (server, options, next) => {
     path: '/query/ports',
     handler: (request, reply) => {
       redisClient.ZRANGEBYSCORE('ports', request.query.start, request.query.end, 'WITHSCORES', function (err, obj) {
-        reply(obj)
+        let result = {}
+        for(let i = 1; i < obj.length; i+=2){
+          result[obj[i]] = []
+        }
+        for(let i = 0; i < obj.length; i+=2){
+          result[obj[i+1]].push(obj[i])
+        }
+        reply(result)
       })
     },
     config: {
@@ -106,8 +113,8 @@ exports.register = (server, options, next) => {
       description: 'Retrieve all hosts for ports',
       validate: {
         query: {
-          start: Joi.number().integer().min(0).isRequired().description('Start port'),
-          end: Joi.number().integer().min(0).isRequired().description('End port')
+          start: Joi.number().integer().min(0).required().description('Start port'),
+          end: Joi.number().integer().min(0).required().description('End port')
         }
       }
     }
