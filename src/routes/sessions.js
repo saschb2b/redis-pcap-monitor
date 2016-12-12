@@ -95,15 +95,21 @@ exports.register = (server, options, next) => {
 
   server.route({
     method: 'GET',
-    path: '/query/hosts/wellkownports',
+    path: '/query/ports',
     handler: (request, reply) => {
-      redisClient.smembers('wellknownports', function (err, obj) {
+      redisClient.ZRANGEBYSCORE('ports', request.query.start, request.query.end, 'WITHSCORES', function (err, obj) {
         reply(obj)
       })
     },
     config: {
       tags: ['api'],
-      description: 'Retrieve all hosts that have incoming connections on well-known ports',
+      description: 'Retrieve all hosts for ports',
+      validate: {
+        query: {
+          start: Joi.number().integer().min(0).isRequired().description('Start port'),
+          end: Joi.number().integer().min(0).isRequired().description('End port')
+        }
+      }
     }
   })
 
@@ -195,7 +201,6 @@ exports.register = (server, options, next) => {
           )
 
           if (result.data && result.length >= 0 && typeof result.length === 'number') {
-            console.log(result.length)
             redisClient.hincrby(`${result.saddr}:${result.daddr}`,
               'dataSum', parseInt(result.length, 10)
             )
@@ -209,9 +214,9 @@ exports.register = (server, options, next) => {
 
           redisClient.sadd(`hosts:${result.daddr}:${result.dport}`, result.saddr)
 
-          if (result.dport <= 1024) {
-            redisClient.sadd('wellknownports', `${result.daddr}:${result.dport}`)
-          }
+          redisClient.zadd('ports',
+            result.dport, result.daddr
+          )
 
           redisClient.zadd('connections',
             result.daddr, result.saddr
