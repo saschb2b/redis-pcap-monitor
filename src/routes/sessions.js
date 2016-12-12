@@ -15,7 +15,7 @@ exports.register = (server, options, next) => {
     method: 'GET',
     path: '/query/connections',
     handler: (request, reply) => {
-      redisClient.zrange("timestamp", request.query.start, request.query.end, "WITHSCORES", function (err, obj) {
+      redisClient.ZRANGEBYSCORE("timestamp", request.query.start, request.query.end, "WITHSCORES", function (err, obj) {
         reply(obj)
       })
     },
@@ -144,10 +144,10 @@ exports.register = (server, options, next) => {
     method: 'GET',
     path: '/query/connections/public',
     handler: (request, reply) => {
-      redisClient.zrange("connections", 0, 10000000000, function (err, obj1) {
-        redisClient.zrange("connections", 11000000000, 172015255255, function (err, obj2) {
-          redisClient.zrange("connections", 172032000000, 192167255255, function (err, obj3) {
-            redisClient.zrange("connections", 192169000000, 255255255255, function (err, obj4) {
+      redisClient.ZRANGEBYSCORE("connections", 0, 10000000000, function (err, obj1) {
+        redisClient.ZRANGEBYSCORE("connections", 11000000000, 172015255255, function (err, obj2) {
+          redisClient.ZRANGEBYSCORE("connections", 172032000000, 192167255255, function (err, obj3) {
+            redisClient.ZRANGEBYSCORE("connections", 192169000000, 255255255255, function (err, obj4) {
               reply({
                 obj1,
                 obj2,
