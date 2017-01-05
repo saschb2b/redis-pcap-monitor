@@ -1,7 +1,7 @@
 \chapter{Solutions}
 This part of the documentation is split up into three sections due to the presence of three various solutions based on different technologies. Each section describes the methodical process of developing the final program and explains the changes from what was originally planned. All solutions are compared with each other. At last there is a recommendation which solution would fit best to the given scenario. 
 
-\section{Store all, process everything later}
+\chapter{Store all, process everything later}
 This solution was realized with the underlying programming language Java. The used framework for Redis is called Jedis. This solution was the first approach, the idea was to just simply store all the references for the specific paket, very similar to foreign Keys in relational Databases. On the other hand this means postprocessing with Java. The repository can be cloned at this address:
 \url{ https://github.com/SirSandmann/redis_dataimport}
 The structure of the data in redis for this approach looks like this:
@@ -17,7 +17,7 @@ All packets are seperated into the actual data and the meta data of the package,
 \end{figure}
 The index(6) contains all characteristics of the indexed data. The indexSets(956957) contains sets of all packageIDs with the specific characteristics the Set name specifies. These sets reference the data within the meta(2177521) and the data(2177521) space.
 
-\section{Store only what was asked for}
+\chapter{Store only what was asked for}
 This approach follows the concept of pure application, or in this case query based database. It was implemented with nodejs as the ground framework, pcap for network sniffing, hapi for the REST api and swagger for the REST gui visualisation. You can clone this repo here: \url{https://github.com/saschb2b/redis-pcap-monitor}
 
 The idea is to write specific data into different redis data types as the data is being sniffed. So every write operation is handled in the “on packet” callback (\ref{loop}).
@@ -28,7 +28,7 @@ The idea is to write specific data into different redis data types as the data i
 \end{figure}
 As there is no general structure more a per query based implementation we will look at each query individually. Every operation focuses on what is being asked for. Splitted in two factors, what wants the user as an output and what do he needs to put into the query. The key is generally a combination of the query name and the parameters put in. We also convert ips to integers as planned to use range functions provided by redis.
 
-\subsection{Query 1}
+\section{Query 1}
 The input is a simple timestamp. The user wants all connections around that timeframe. So we created a sorted list called “timestamp” with a timestamp key (\ref{query1}). The value is a combination of source and destination address with the used ports. The output uses a redis query “between” to achieve the wanted one second timeframe (\ref{query11})..
 
   \begin{figure}[htb!]
@@ -43,7 +43,7 @@ The input is a simple timestamp. The user wants all connections around that time
 	\label{query11}
 \end{figure}
 
-\subsection{Query 2}
+\section{Query 2}
 The inputs are two different ips. The user wants the overall data volume per minute between those ips. We created a hash storing three values. The start time which is only set once and never changes. A stop time which is set whenever a new fitting connection was found. And a dataSum property which increments with every further fitting connection. Some post processing has to be done here. We need to check both connection directions and a conversion to data volume per minute.
 
   \begin{figure}[htb!]
@@ -58,7 +58,7 @@ The inputs are two different ips. The user wants the overall data volume per min
 	\label{query22}
 \end{figure}
 
-\subsection{Query 3}
+\section{Query 3}
 The inputs are an ip address as a destination and a port. In this case HTTP port which is 80 but we wanted some room. The user wants all hosts that this combination had connections to. We created several lists called “hosts” followed by the input combination. A valid list name could be “hosts:201.2.2.1:80”. The values are source addresses. Addresses that had connections to this specific connection. The output is then a generated query via the input followed by all the values within this specific list.
 
   \begin{figure}[htb!]
@@ -73,7 +73,7 @@ The inputs are an ip address as a destination and a port. In this case HTTP port
 	\label{query33}
 \end{figure}
 
-\subsection{Query 4}
+\section{Query 4}
 The input is a start port and an end port. We wanted all connections that had incoming connections to well-known ports. Which means ports that are lower or equal to 1024. This was ideal for redis between. So we used a sorted list called “ports”. The key was the port and the value the destination address. The query simple asked for every key that was lower or equal to 1024.
 
   \begin{figure}[htb!]
@@ -88,7 +88,7 @@ The input is a start port and an end port. We wanted all connections that had in
 	\label{query44}
 \end{figure}
 
-\subsection{Query 5}
+\section{Query 5}
 The user input is a decimal sequence. Due to technical limitation we can’t scan for a hex sequence. We created list called “data” holding all the packet data. We needed some pre processing in order to make this value searchable. The output starts a redis method called sscan which scans a list with a given regex and returns all packets that meet this criteria.
 
   \begin{figure}[htb!]
@@ -103,7 +103,7 @@ The user input is a decimal sequence. Due to technical limitation we can’t sca
 	\label{query55}
 \end{figure}
 
-\subsection{Query 6}
+\section{Query 6}
 The input is nothing. We wanted all hosts that had connections to outside hosts. We created a sorted list called “connections” where the key is the destination address and the value is the source address. The output queries via zrangebyscore every key that fits between a numeric range representing public ips.
 
   \begin{figure}[htb!]
@@ -120,7 +120,7 @@ The input is nothing. We wanted all hosts that had connections to outside hosts.
 
 As you can see this approach is very tight binded to its queries. Some allow a little more freedom and some none. If the application should grow the sniff loop needs to grow as well. Old data may not be suitable for further new queries.
 
-\section{Store all with partial redundancy and without post-processing}
+\chapter{Store all with partial redundancy and without post-processing}
 This solution was realized with the underlying programming language Python. Redis-py servers as the essential client. The solution does not dissociate from the original plan very much. It is based on the usage of Hashes to store each ethernet packet. At first all attributes on all layers of an ethernet packet are extracted by using a pcap reader in this case pyshark. These extracted values are assigned to variables afterwards. As planned to check whether an IP is private or not is pre-processed likewise if a port is a http or well-known. But instead of using an boolean type here, a simple integer value 1 or 0 is selected. This is for the later explained indexes. Then a hash object will be generated. This hash object stores the following attributes:
 
 \begin{itemize}
