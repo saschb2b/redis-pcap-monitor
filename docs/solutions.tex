@@ -1,0 +1,163 @@
+\chapter{Solutions}
+This part of the documentation is split up into three sections due to the presence of three various solutions based on different technologies. Each section describes the methodical process of developing the final program and explains the changes from what was originally planned. All solutions are compared with each other. At last there is a recommendation which solution would fit best to the given scenario. 
+
+\chapter{Store all, process everything later}
+This solution was realized with the underlying programming language Java. The used framework for Redis is called Jedis. This solution was the first approach, the idea was to just simply store all the references for the specific paket, very similar to foreign Keys in relational Databases. On the other hand this means postprocessing with Java. The repository can be cloned at this address:
+\url{ https://github.com/SirSandmann/redis_dataimport}
+The structure of the data in redis for this approach looks like this:
+
+  \begin{figure}[htb!]
+	\centerline{\includegraphics[width=0.8\textwidth]{resources/solution1-1.png}}
+\end{figure}
+
+All packets are seperated into the actual data and the meta data of the package, like in the original plan. The packets are in this approach two separated entities, realized with hashmaps in redis. Each packet has a unique number (e.g. 3230:meta for the meta data entity) which can be referenced. The references to the number of the packets are stores in a set. Here it gets a bit complicated. These sets are references by indexes holding the value e.g. indexSets:sourcePort:79 for the key of the set holding all the unique packet numbers. With this chaining post processing is necessary. Reviewing this solution the step with the indexes referencing a set is unnecessary, because the set could have been directly put into the index. The following screenshot shows the data structure in this approach within the Redis Desktop manager.
+
+  \begin{figure}[htb!]
+	\centerline{\includegraphics[width=1.0\textwidth]{resources/solution1-2.png}}
+\end{figure}
+The index(6) contains all characteristics of the indexed data. The indexSets(956957) contains sets of all packageIDs with the specific characteristics the Set name specifies. These sets reference the data within the meta(2177521) and the data(2177521) space.
+
+\chapter{Store only what was asked for}
+This approach follows the concept of pure application, or in this case query based database. It was implemented with nodejs as the ground framework, pcap for network sniffing, hapi for the REST api and swagger for the REST gui visualisation. You can clone this repo here: \url{https://github.com/saschb2b/redis-pcap-monitor}
+
+The idea is to write specific data into different redis data types as the data is being sniffed. So every write operation is handled in the “on packet” callback (\ref{loop}).
+  \begin{figure}[htb!]
+	\centerline{\includegraphics[width=1.0\textwidth]{resources/solution2-1.png}}
+	\caption{Network Sniffer Loop}
+		\label{loop}
+\end{figure}
+As there is no general structure more a per query based implementation we will look at each query individually. Every operation focuses on what is being asked for. Splitted in two factors, what wants the user as an output and what do he needs to put into the query. The key is generally a combination of the query name and the parameters put in. We also convert ips to integers as planned to use range functions provided by redis.
+
+\section{Query 1}
+The input is a simple timestamp. The user wants all connections around that timeframe. So we created a sorted list called “timestamp” with a timestamp key (\ref{query1}). The value is a combination of source and destination address with the used ports. The output uses a redis query “between” to achieve the wanted one second timeframe (\ref{query11})..
+
+  \begin{figure}[htb!]
+	\centerline{\includegraphics[width=1.0\textwidth]{resources/solution2-2.png}}
+	\caption{Fill redis with timestamps}
+	\label{query1}
+\end{figure}
+
+  \begin{figure}[htb!]
+	\centerline{\includegraphics[width=1.0\textwidth]{resources/solution2-3.png}}
+	\caption{Query specific timeframes}
+	\label{query11}
+\end{figure}
+
+\section{Query 2}
+The inputs are two different ips. The user wants the overall data volume per minute between those ips. We created a hash storing three values. The start time which is only set once and never changes. A stop time which is set whenever a new fitting connection was found. And a dataSum property which increments with every further fitting connection. Some post processing has to be done here. We need to check both connection directions and a conversion to data volume per minute.
+
+  \begin{figure}[htb!]
+	\centerline{\includegraphics[width=1.0\textwidth]{resources/solution2-4.png}}
+	\caption{Fill redis with timestamps}
+	\label{query2}
+\end{figure}
+
+\begin{figure}[htb!]
+	\centerline{\includegraphics[width=1.0\textwidth]{resources/solution2-5.png}}
+	\caption{Query specific timeframes}
+	\label{query22}
+\end{figure}
+
+\section{Query 3}
+The inputs are an ip address as a destination and a port. In this case HTTP port which is 80 but we wanted some room. The user wants all hosts that this combination had connections to. We created several lists called “hosts” followed by the input combination. A valid list name could be “hosts:201.2.2.1:80”. The values are source addresses. Addresses that had connections to this specific connection. The output is then a generated query via the input followed by all the values within this specific list.
+
+  \begin{figure}[htb!]
+	\centerline{\includegraphics[width=1.0\textwidth]{resources/solution2-6.png}}
+	\caption{Fill redis with timestamps}
+	\label{query3}
+\end{figure}
+
+\begin{figure}[htb!]
+	\centerline{\includegraphics[width=1.0\textwidth]{resources/solution2-7.png}}
+	\caption{Query specific timeframes}
+	\label{query33}
+\end{figure}
+
+\section{Query 4}
+The input is a start port and an end port. We wanted all connections that had incoming connections to well-known ports. Which means ports that are lower or equal to 1024. This was ideal for redis between. So we used a sorted list called “ports”. The key was the port and the value the destination address. The query simple asked for every key that was lower or equal to 1024.
+
+  \begin{figure}[htb!]
+	\centerline{\includegraphics[width=1.0\textwidth]{resources/solution2-8.png}}
+	\caption{Fill redis with timestamps}
+	\label{query4}
+\end{figure}
+
+\begin{figure}[htb!]
+	\centerline{\includegraphics[width=1.0\textwidth]{resources/solution2-9.png}}
+	\caption{Query specific timeframes}
+	\label{query44}
+\end{figure}
+
+\section{Query 5}
+The user input is a decimal sequence. Due to technical limitation we can’t scan for a hex sequence. We created list called “data” holding all the packet data. We needed some pre processing in order to make this value searchable. The output starts a redis method called sscan which scans a list with a given regex and returns all packets that meet this criteria.
+
+  \begin{figure}[htb!]
+	\centerline{\includegraphics[width=1.0\textwidth]{resources/solution2-10.png}}
+	\caption{Fill redis with timestamps}
+	\label{query5}
+\end{figure}
+
+\begin{figure}[htb!]
+	\centerline{\includegraphics[width=1.0\textwidth]{resources/solution2-11.png}}
+	\caption{Query specific timeframes}
+	\label{query55}
+\end{figure}
+
+\section{Query 6}
+The input is nothing. We wanted all hosts that had connections to outside hosts. We created a sorted list called “connections” where the key is the destination address and the value is the source address. The output queries via zrangebyscore every key that fits between a numeric range representing public ips.
+
+  \begin{figure}[htb!]
+	\centerline{\includegraphics[width=1.0\textwidth]{resources/solution2-12.png}}
+	\caption{Fill redis with timestamps}
+	\label{query6}
+\end{figure}
+
+\begin{figure}[htb!]
+	\centerline{\includegraphics[width=1.0\textwidth]{resources/solution2-13.png}}
+	\caption{Query specific timeframes}
+	\label{query66}
+\end{figure}
+
+As you can see this approach is very tight binded to its queries. Some allow a little more freedom and some none. If the application should grow the sniff loop needs to grow as well. Old data may not be suitable for further new queries.
+
+\chapter{Store all with partial redundancy and without post-processing}
+This solution was realized with the underlying programming language Python. Redis-py servers as the essential client. The solution does not dissociate from the original plan very much. It is based on the usage of Hashes to store each ethernet packet. At first all attributes on all layers of an ethernet packet are extracted by using a pcap reader in this case pyshark. These extracted values are assigned to variables afterwards. As planned to check whether an IP is private or not is pre-processed likewise if a port is a http or well-known. But instead of using an boolean type here, a simple integer value 1 or 0 is selected. This is for the later explained indexes. Then a hash object will be generated. This hash object stores the following attributes:
+
+\begin{itemize}
+	\item source address
+	\item source port
+	\item destination address
+	\item destination port
+	\item packet length
+	\item timestamp
+\end{itemize}
+
+The amount of stored attributes is less than initially intended to store. Like stated in the original plan each hash gets an index and a name operating as the key identifying a single hash. As name the simple string “eth” is chosen. The index is a simple numerical index incremental rising and append to the name of the hash. So each hash object is unique and can be addressed correctly. Diverging from the plan no hash field gets an own index. It is not necessary. Each hash field consists of a name as a key to access this field and the assigned value. An example is shown in the picture:
+
+\begin{figure}[htb!]
+	\centerline{\includegraphics[width=1.0\textwidth]{resources/solution3-1.png}}
+\end{figure}
+
+As seen the hash object is created like it was primarily planned. There are two different field keys defined. The “statical” is a simple string which has always the same name. The “dynamically” ones are combined out of two variables holding the extracted source and destination address. The name as the key is the sum of these addresses as integers. So each hash object has a different field name here. Why it is done this way is explained later in the document. 
+Having all essential attributes stored, it continues with preparing another Redis data type for the queries derived from the scenario. In order to perform these special queries or any query at all sorted sets are needed. This also a new aspect which was not indicated in the original plan. These sorted sets are the main lists which retrieve the stored hash objects as the result of a query. So sorted sets can hold the same values which leads to partial redundancy. An example of such a sorted set is shown in the following:
+
+redis_db.zadd('DPwK', dstPort_wellKnown,(redis_db.hmget(('eth',ct),'sIP','sPort')))
+
+A sorted set gets a unique name “DPwK” as its key. The second parameter is the previously pre-processed value functioning as the index for the queries. The third one is a reference to the hash objects and particular fields of this hash object depending on the query. Using this reference overwrites any already existing value in the sorted set which leads to natural filtering duplicates - duplicates are not given and each value occurs only once. A reference nested into a sorted list is what was described as a complex data structure back in the basics and makes Redis very flexible when it comes to various kinds of queries. The example seen above points out that the sorted set retrieve all hash objects and its hash fields generated where the corresponding ethernet packet has a well-known destination port. There can be numerous sorted sets to cover any query. The general approach is displayed below:
+
+\begin{figure}[htb!]
+	\centerline{\includegraphics[width=1.0\textwidth]{resources/solution3-2.png}}
+\end{figure}
+
+Next follows the queries. As mentioned Redis provides complex data structures which can be accessed by simple commands. A further advantage of Redis. Basing on the example a query to retrieve all hosts that have a connection to a well-known port could be read like:
+
+redis_db.zrangebyscore('DPwK',1,1)
+
+The command “zrangebyscore” enables to retrieve a bunch of stored hash objects with the same score. Therefore Redis first looks which key to access. This is defined in the first parameter of the command. So Redis searches for the sorted set with the name “DPwK” as its key. The second and third parameter define the limitation of the score range. Both are 1 meaning that all sorted sets with a score of 1 should return their values. “zrangebyscore” needs float or integer values to operate. That’s why integers instead of booleans were selected while pre-processing if a port is well-known. The found sorted sets return their values. These values are references to hash objects generated when the pre-processed variable “dstPort_wellKnown” was 1. 
+
+\begin{figure}[htb!]
+	\centerline{\includegraphics[width=1.0\textwidth]{resources/solution3-3.png}}
+\end{figure}
+
+The screenshots shows the result of the query for all well-known ports. Each package exists only once due to filtering duplicates and consists of the destination address and the destination port belonging to the hash object which fulfills the querying criteria.
+Every query in this solution works the same. It shows what Redis is capable of in mind that Redis provides many options and commands. The only post-processing necessary is facing the query to retrieve the overall data volume per minute between two IPs. All in all this solution is rather simple and does not exploit the full capability of Redis. Nevertheless it is sufficient.
