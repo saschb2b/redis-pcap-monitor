@@ -157,7 +157,9 @@ Next follows the queries. As mentioned Redis provides complex data structures wh
 zrangebyscore('DPwK',1,1)\\
 \end{center}
 
-The command “zrangebyscore” enables to retrieve a bunch of stored hash objects with the same score. Therefore Redis first looks which key to access. This is defined in the first parameter of the command. So Redis searches for the sorted set with the name “DPwK” as its key. The second and third parameter define the limitation of the score range. Both are 1 meaning that all sorted sets with a score of 1 should return their values. “zrangebyscore” needs float or integer values to operate. That’s why integers instead of booleans were selected while pre-processing if a port is well-known. The found sorted sets return their values. These values are references to hash objects generated when the pre-processed variable “dstPort_wellKnown” was 1. 
+The command “zrangebyscore” enables to retrieve a bunch of stored hash objects with the same score. Therefore Redis first looks which key to access. This is defined in the first parameter of the command. So Redis searches for the sorted set with the name “DPwK” as its key. The second and third parameter define the limitation of the score range. Both are 1 meaning that all sorted sets with a score of 1 should return their values. “zrangebyscore” needs float or integer values to operate. That’s why integers instead of booleans were selected while pre-processing if a port is well-known. The found sorted sets return their values. These values are references to hash objects generated when the pre-processed variable \begin{comment}
+	"dstPort{\_}wellKnown"
+\end{comment} was 1. 
 
 \begin{figure}[H]
 	\centerline{\includegraphics[width=1.0\textwidth]{resources/solution3-3.png}}
